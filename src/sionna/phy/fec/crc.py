@@ -85,7 +85,7 @@ class CRCEncoder(Block):
         self._k: Optional[int] = None
         self._n: Optional[int] = None
         # Register buffer placeholder for CUDAGraph compatibility
-        self.register_buffer("_g_mat_crc", None)
+        self.register_buffer("_g_mat_crc", None, persistent=False)
         self._fixed_k: bool = False  # True if k was pre-specified
 
         # Pre-build generator matrix if k is specified
@@ -201,9 +201,11 @@ class CRCEncoder(Block):
             raise ValueError("Shape of last dimension cannot be None.")
         g_mat_crc = self._gen_crc_mat(k, self.crc_pol)
         # Register as buffer for CUDAGraph compatibility
-        self.register_buffer("_g_mat_crc", torch.tensor(
-            g_mat_crc, dtype=self.dtype, device=self.device
-        ))
+        self.register_buffer(
+            "_g_mat_crc",
+            torch.tensor(g_mat_crc, dtype=self.dtype, device=self.device),
+            persistent=False,
+        )
 
         self._k = k
         self._n = k + g_mat_crc.shape[1]
@@ -360,4 +362,3 @@ class CRCDecoder(Block):
         crc_valid = (x_parity_received == x_parity_computed).all(dim=-1, keepdim=True)
 
         return x_info, crc_valid
-

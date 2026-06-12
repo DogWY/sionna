@@ -385,22 +385,34 @@ class LDPCBPDecoder(Block):
         self._max_vn_degree = int(vn_degrees.max()) if len(vn_degrees) > 0 else 0
 
         # Build padded index arrays for vectorized operations
-        self._cn_gather_idx, self._cn_mask = self._build_padded_indices(
+        cn_gather_idx, cn_mask = self._build_padded_indices(
             cn_idx_sorted, cn_row_splits, self._num_cns, self._max_cn_degree
         )
-        self._vn_gather_idx, self._vn_mask = self._build_padded_indices(
+        self.register_buffer("_cn_gather_idx", cn_gather_idx, persistent=False)
+        self.register_buffer("_cn_mask", cn_mask, persistent=False)
+        vn_gather_idx, vn_mask = self._build_padded_indices(
             self._vn_idx, vn_row_splits, self._num_vns, self._max_vn_degree
         )
+        self.register_buffer("_vn_gather_idx", vn_gather_idx, persistent=False)
+        self.register_buffer("_vn_mask", vn_mask, persistent=False)
 
         # Build scatter indices for CN update
         # This maps from padded CN messages back to edge format
-        self._cn_scatter_idx = self._build_scatter_indices(
-            cn_row_splits, self._num_cns, self._max_cn_degree
+        self.register_buffer(
+            "_cn_scatter_idx",
+            self._build_scatter_indices(
+                cn_row_splits, self._num_cns, self._max_cn_degree
+            ),
+            persistent=False,
         )
 
         # Build scatter indices for VN update
-        self._vn_scatter_idx = self._build_scatter_indices(
-            vn_row_splits, self._num_vns, self._max_vn_degree
+        self.register_buffer(
+            "_vn_scatter_idx",
+            self._build_scatter_indices(
+                vn_row_splits, self._num_vns, self._max_vn_degree
+            ),
+            persistent=False,
         )
 
         # Precompute valid position indices for scatter operations (avoids dynamic shapes)

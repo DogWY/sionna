@@ -169,8 +169,14 @@ class ChannelCoefficientsGenerator(Object):
         super().__init__(precision=precision, device=device)
 
         # Wavelength (m)
-        self._lambda_0 = torch.as_tensor(
-            SPEED_OF_LIGHT / carrier_frequency, dtype=self.dtype, device=self.device
+        self.register_buffer(
+            "_lambda_0",
+            torch.as_tensor(
+                SPEED_OF_LIGHT / carrier_frequency,
+                dtype=self.dtype,
+                device=self.device,
+            ),
+            persistent=False,
         )
         self._tx_array = tx_array
         self._rx_array = rx_array
@@ -231,14 +237,14 @@ class ChannelCoefficientsGenerator(Object):
         self._allocated_rays_per_cluster: int = 0
 
         # Sample times buffer
-        self.register_buffer("_sample_times", None)
+        self.register_buffer("_sample_times", None, persistent=False)
 
         # Step 10 buffer (random phases)
-        self.register_buffer("_phi_buffer", None)
+        self.register_buffer("_phi_buffer", None, persistent=False)
 
         # Intermediate buffers for step 11
-        self.register_buffer("_zeros_buffer_small", None)
-        self.register_buffer("_zeros_buffer_time", None)
+        self.register_buffer("_zeros_buffer_small", None, persistent=False)
+        self.register_buffer("_zeros_buffer_time", None, persistent=False)
 
     def allocate_for_batch_size(
         self,
@@ -266,18 +272,29 @@ class ChannelCoefficientsGenerator(Object):
         self._allocated_rays_per_cluster = rays_per_cluster
 
         # Sample times buffer
-        self.register_buffer("_sample_times",
-            torch.zeros(num_time_steps, dtype=self.dtype, device=self.device))
+        self.register_buffer(
+            "_sample_times",
+            torch.zeros(num_time_steps, dtype=self.dtype, device=self.device),
+            persistent=False,
+        )
 
         # Step 10 buffer: random phases
         # Shape: [batch_size, 1, 1, num_clusters, rays_per_cluster, 4]
-        self.register_buffer("_phi_buffer",
-            torch.zeros(batch_size, 1, 1, num_clusters, rays_per_cluster, 4,
-                       dtype=self.dtype, device=self.device))
+        self.register_buffer(
+            "_phi_buffer",
+            torch.zeros(
+                batch_size, 1, 1, num_clusters, rays_per_cluster, 4,
+                dtype=self.dtype, device=self.device,
+            ),
+            persistent=False,
+        )
 
         # Small zeros buffer for creating complex numbers
-        self.register_buffer("_zeros_buffer_small",
-            torch.zeros(1, dtype=self.dtype, device=self.device))
+        self.register_buffer(
+            "_zeros_buffer_small",
+            torch.zeros(1, dtype=self.dtype, device=self.device),
+            persistent=False,
+        )
 
     def __call__(
         self,
@@ -1059,4 +1076,3 @@ class ChannelCoefficientsGenerator(Object):
         h = torch.where(los_indicator, h_los, h_nlos)
 
         return h, delays_nlos
-

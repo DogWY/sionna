@@ -129,14 +129,17 @@ class EDFA(Block):
         else:
             self.register_buffer("_n_sp", self._f / 2.0 * self._g / (self._g - 1.0))
 
-        self._rho_n_ase = (
-            self._n_sp * (self._g - 1.0) * H * self._f_c
+        self.register_buffer(
+            "_rho_n_ase",
+            self._n_sp * (self._g - 1.0) * H * self._f_c,
+            persistent=False,
         )  # Noise density in (W/Hz)
 
-        self._p_n_ase = 2.0 * self._rho_n_ase / self._dt  # Noise power in (W)
+        p_n_ase = 2.0 * self._rho_n_ase / self._dt  # Noise power in (W)
 
         if self._with_dual_polarization:
-            self._p_n_ase = self._p_n_ase / 2.0
+            p_n_ase = p_n_ase / 2.0
+        self.register_buffer("_p_n_ase", p_n_ase, persistent=False)
 
     def call(self, inputs: torch.Tensor) -> torch.Tensor:
         """Process the optical input signal through the EDFA.

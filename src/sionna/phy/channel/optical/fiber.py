@@ -202,7 +202,11 @@ class SSFM(Block):
 
         # Only used for constant step width
         if not self._adaptive:
-            self._dz = self._length / self._n_ssfm
+            self.register_buffer(
+                "_dz",
+                self._length / self._n_ssfm,
+                persistent=False,
+            )
 
         # Register as buffers for CUDAGraph compatibility
         self.register_buffer("_n_sp", torch.tensor(n_sp, dtype=self.dtype, device=self.device))
@@ -218,12 +222,17 @@ class SSFM(Block):
         self._with_manakov = with_manakov
         self._with_nonlinearity = with_nonlinearity
 
-        self._rho_n = H * self._f_c * self._alpha * self._length * self._n_sp  # (W/Hz)
+        self.register_buffer(
+            "_rho_n",
+            H * self._f_c * self._alpha * self._length * self._n_sp,
+            persistent=False,
+        )  # (W/Hz)
 
         # Calculate noise power depending on simulation bandwidth
-        self._p_n_ase = self._rho_n / self._sample_duration / self._t_norm  # (Ws)
+        p_n_ase = self._rho_n / self._sample_duration / self._t_norm  # (Ws)
         if self._with_manakov:
-            self._p_n_ase = self._p_n_ase / 2.0
+            p_n_ase = p_n_ase / 2.0
+        self.register_buffer("_p_n_ase", p_n_ase, persistent=False)
 
         # Pre-compute Hamming window
         if self._half_window_length > 0:

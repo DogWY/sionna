@@ -4,6 +4,7 @@
 #
 """Tests for the AWGN channel block"""
 
+import pytest
 import torch
 
 from sionna.phy import dtypes
@@ -138,3 +139,35 @@ class TestAWGN:
         y = awgn(x, no)
 
         assert y.device == x.device
+
+    @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
+    def test_to_cuda_updates_logical_device_and_output_device(self):
+        """Test that AWGN follows .to(cuda) even without other tensor state."""
+        awgn = AWGN(device="cpu")
+
+        awgn.to("cuda:0")
+
+        x = torch.randn(8, 4, dtype=torch.complex64, device="cuda:0")
+        y = awgn(x, 0.1)
+        assert awgn.device == "cuda:0"
+        assert y.device == torch.device("cuda:0")
+
+    @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
+    def test_parent_module_to_cuda_updates_child_awgn(self):
+        """Test that a parent nn.Module moves child AWGN's device buffer."""
+
+        class Parent(torch.nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.awgn = AWGN(device="cpu")
+
+            def forward(self, x, no):
+                return self.awgn(x, no)
+
+        parent = Parent()
+        parent.to("cuda:0")
+
+        x = torch.randn(8, 4, dtype=torch.complex64, device="cuda:0")
+        y = parent(x, 0.1)
+        assert parent.awgn.device == "cuda:0"
+        assert y.device == torch.device("cuda:0")

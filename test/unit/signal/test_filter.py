@@ -283,6 +283,27 @@ class TestCustomFilter:
         else:
             assert fil_coeff.grad.sum().item() != 0
 
+    def test_parameter_coefficients_are_trainable(self, device):
+        """Test that Parameter coefficients remain module parameters"""
+        samples_per_symbol = 4
+        filter_length = samples_per_symbol * 8 + 1
+        rdtype = dtypes["double"]["torch"]["dtype"]
+        coeff = torch.nn.Parameter(
+            torch.randn(filter_length, dtype=rdtype, device=device)
+        )
+
+        filt = CustomFilter(
+            samples_per_symbol,
+            coefficients=coeff,
+            precision="double",
+            device=device,
+        )
+
+        params = list(filt.parameters())
+        assert len(params) == 1
+        assert params[0] is coeff
+        assert "_coefficients" in filt.state_dict()
+
 
 class TestRaisedCosineFilter:
     """Tests for the RaisedCosineFilter class"""

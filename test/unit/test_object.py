@@ -8,6 +8,16 @@ import numpy as np
 from sionna.phy import config, dtypes, Object
 
 
+class _BufferObject(Object):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.register_buffer(
+            "_cache",
+            torch.ones(1, device=self.device),
+            persistent=False,
+        )
+
+
 def test_default_properties():
     obj = Object()
     assert obj.precision == config.precision
@@ -34,6 +44,40 @@ def test_device_setter(device):
     obj = Object(device=device)
     assert obj.device == device
     assert obj.torch_rng == config.torch_rng(device)
+
+
+def test_device_is_derived_from_non_persistent_buffer():
+    obj = Object(device="cpu")
+    buffers = dict(obj.named_buffers())
+
+    assert "_device_ref" in buffers
+    assert buffers["_device_ref"].numel() == 0
+    assert buffers["_device_ref"].device == torch.device("cpu")
+    assert "_device_ref" not in obj.state_dict()
+    assert not hasattr(obj, "_device_str")
+    assert obj.device == "cpu"
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
+def test_to_cuda_updates_device_property_from_buffer():
+    obj = Object(device="cpu")
+
+    obj.to("cuda:0")
+
+    assert obj.device == "cuda:0"
+    assert obj._device_ref.device == torch.device("cuda:0")
+    assert obj.torch_rng == config.torch_rng("cuda:0")
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
+def test_to_cuda_moves_registered_non_persistent_buffers():
+    obj = _BufferObject(device="cpu")
+
+    obj.to("cuda:0")
+
+    assert obj.device == "cuda:0"
+    assert obj._cache.device == torch.device("cuda:0")
+    assert "_cache" not in obj.state_dict()
 
 
 def test_convert(precision, device):

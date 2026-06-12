@@ -128,7 +128,7 @@ class TurboDecoder(Block):
             self._gen_poly = encoder._gen_poly
             self._terminate = encoder.terminate
             self._trellis = encoder.trellis
-            if self._trellis._device != self.device:
+            if self._trellis.device != self.device:
                 self._trellis.to(self.device)
             if not self._trellis.rsc:
                 raise ValueError("Trellis must be RSC.")
@@ -194,8 +194,10 @@ class TurboDecoder(Block):
         self._coderate_conv = 1 / len(self._gen_poly)
         self._mu = len(self._gen_poly[0]) - 1
 
-        self._punct_pattern = puncture_pattern(
-            self._coderate, self._coderate_conv, device=self.device
+        self.register_buffer(
+            "_punct_pattern",
+            puncture_pattern(self._coderate, self._coderate_conv, device=self.device),
+            persistent=False,
         )
 
         # Number of input bit streams, only 1 in current implementation
@@ -417,7 +419,11 @@ class TurboDecoder(Block):
             )
 
         mask_ = mask_.reshape(-1)
-        self.register_buffer("_punct_indices", torch.where(mask_)[0].unsqueeze(-1).to(torch.int32))
+        self.register_buffer(
+            "_punct_indices",
+            torch.where(mask_)[0].unsqueeze(-1).to(torch.int32),
+            persistent=False,
+        )
 
     @torch.compiler.disable
     def call(self, llr_ch: torch.Tensor, /) -> torch.Tensor:
@@ -530,4 +536,3 @@ class TurboDecoder(Block):
 
         output_reshaped = output.reshape(output_shape)
         return output_reshaped
-

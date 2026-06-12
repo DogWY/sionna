@@ -103,6 +103,21 @@ class TestCustomWindow:
         assert coeff.grad.shape == coeff.shape
         assert coeff.grad.sum().item() != 0
 
+    def test_parameter_coefficients_are_trainable(self, device):
+        """Test that Parameter coefficients remain module parameters"""
+        win_length = 128
+        rdtype = dtypes["single"]["torch"]["dtype"]
+        coeff = torch.nn.Parameter(
+            torch.randn(win_length, dtype=rdtype, device=device)
+        )
+
+        window = CustomWindow(coeff, precision="single", device=device)
+
+        params = list(window.parameters())
+        assert len(params) == 1
+        assert params[0] is coeff
+        assert "_coefficients" in window.state_dict()
+
 
 class TestHannWindow:
     """Tests for the HannWindow class"""

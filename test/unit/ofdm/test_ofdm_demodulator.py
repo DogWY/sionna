@@ -35,6 +35,22 @@ class TestOFDMDemodulator:
 
             assert torch.max(torch.abs(x - x_hat)) < 1e-5
 
+    def test_default_cyclic_prefix(self, device, precision):
+        """Test demodulation with the default scalar cyclic prefix length"""
+        fft_size = 72
+        num_ofdm_symbols = 14
+        qam_source = QAMSource(4, precision=precision, device=device)
+
+        modulator = OFDMModulator(precision=precision, device=device)
+        demodulator = OFDMDemodulator(
+            fft_size, 0, precision=precision, device=device
+        )
+        x = qam_source([4, num_ofdm_symbols, fft_size])
+        x_time = modulator(x)
+        x_hat = demodulator(x_time)
+
+        assert torch.max(torch.abs(x - x_hat)) < 1e-5
+
     def test_higher_dimensions(self, device, precision):
         """Test demodulator with higher dimensional inputs"""
         batch_size = [64, 12, 6]
@@ -237,4 +253,3 @@ class TestOFDMModDemod:
             assert x_f.shape == torch.Size(
                 [32, 1, 1, num_ofdm_symbols, fft_size]
             )
-

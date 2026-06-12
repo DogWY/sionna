@@ -121,7 +121,14 @@ class PUSCHTransmitter(Block):
 
         params = check_pusch_configs(pusch_configs)
         for key, value in params.items():
-            setattr(self, f"_{key}", value)
+            if isinstance(value, torch.Tensor):
+                self.register_buffer(
+                    f"_{key}",
+                    value.to(device=self.device),
+                    persistent=False,
+                )
+            else:
+                setattr(self, f"_{key}", value)
 
         self._pusch_configs = pusch_configs
 
@@ -166,6 +173,7 @@ class PUSCHTransmitter(Block):
         self._pilot_pattern = PUSCHPilotPattern(
             self._pusch_configs,
             precision=self.precision,
+            device=self.device,
         )
 
         # Create ResourceGrid
@@ -268,4 +276,3 @@ class PUSCHTransmitter(Block):
         if self._return_bits:
             return x, b
         return x
-

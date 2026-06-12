@@ -254,6 +254,28 @@ class TestConstellation:
         assert np.isclose(output.mean().abs().item(), 0.0, atol=1e-5)
         assert np.isclose((output.abs() ** 2).mean().item(), 1.0, atol=1e-5)
 
+    def test_custom_parameter_points_are_trainable(self, device):
+        """Verify custom Parameter points remain module parameters."""
+        points = torch.nn.Parameter(
+            torch.tensor(
+                [1 + 1j, -1 + 1j, 1 - 1j, -1 - 1j],
+                dtype=torch.complex64,
+                device=device,
+            )
+        )
+        c = Constellation(
+            "custom", 2, points=points, precision="single", device=device
+        )
+
+        params = list(c.parameters())
+        assert len(params) == 1
+        assert params[0] is points
+        assert "_points" in c.state_dict()
+
+        loss = c().abs().square().sum()
+        loss.backward()
+        assert points.grad is not None
+
     def test_dtype(self, precision, device):
         """Verify output dtype matches requested precision."""
         c = Constellation("qam", 4, precision=precision, device=device)

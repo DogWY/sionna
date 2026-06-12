@@ -155,7 +155,7 @@ class ViterbiDecoder(Block):
 
         # Pre-computed output bit patterns for branch metric calculation
         # Register buffer placeholder for CUDAGraph compatibility
-        self.register_buffer("_op_bits", None)
+        self.register_buffer("_op_bits", None, persistent=False)
 
     @property
     def gen_poly(self) -> Tuple[str, ...]:
@@ -403,8 +403,11 @@ class ViterbiDecoder(Block):
             [int2bin(op, self._conv_n) for op in range(self._no)]
         )
         # Register as buffer for CUDAGraph compatibility
-        self.register_buffer("_op_bits", torch.tensor(op_bits, dtype=self.dtype,
-                                     device=self.device))
+        self.register_buffer(
+            "_op_bits",
+            torch.tensor(op_bits, dtype=self.dtype, device=self.device),
+            persistent=False,
+        )
 
         # Move trellis to correct device if needed
         if self._trellis.device != self.device:
@@ -609,7 +612,7 @@ class BCJRDecoder(Block):
 
         # Pre-computed output bit patterns for branch metric calculation
         # Register buffer placeholder for CUDAGraph compatibility
-        self.register_buffer("_op_bits", None)
+        self.register_buffer("_op_bits", None, persistent=False)
 
     @property
     def gen_poly(self) -> Tuple[str, ...]:
@@ -902,8 +905,11 @@ class BCJRDecoder(Block):
             [int2bin(op, self._conv_n) for op in range(self._no)]
         )
         # Register as buffer for CUDAGraph compatibility
-        self.register_buffer("_op_bits", torch.tensor(op_bits, dtype=self.dtype,
-                                     device=self.device))
+        self.register_buffer(
+            "_op_bits",
+            torch.tensor(op_bits, dtype=self.dtype, device=self.device),
+            persistent=False,
+        )
 
         # Move trellis to correct device if needed
         if self._trellis.device != self.device:
@@ -978,4 +984,3 @@ class BCJRDecoder(Block):
 
         msghat_reshaped = msghat.reshape(output_shape)
         return msghat_reshaped
-

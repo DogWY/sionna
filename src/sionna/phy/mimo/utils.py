@@ -547,9 +547,17 @@ class List2LLRSimple(List2LLR):
         # Convert to tensor and add dummy dimensions needed for broadcasting
         # Shape: [1, 1, 1, num_points/2, num_bits_per_symbol]
         c0_tensor = torch.tensor(c0, dtype=torch.int32, device=self.device)
-        self._c0 = expand_to_rank(c0_tensor, 5, 0)
+        self.register_buffer(
+            "_c0",
+            expand_to_rank(c0_tensor, 5, 0),
+            persistent=False,
+        )
         c1_tensor = torch.tensor(c1, dtype=torch.int32, device=self.device)
-        self._c1 = expand_to_rank(c1_tensor, 5, 0)
+        self.register_buffer(
+            "_c1",
+            expand_to_rank(c1_tensor, 5, 0),
+            persistent=False,
+        )
 
         # Assign this absolute value to all LLRs without counter-hypothesis
         self._llr_clip_val = llr_clip_val
@@ -620,4 +628,3 @@ class List2LLRSimple(List2LLR):
         llr = llr.clamp(-self._llr_clip_val, self._llr_clip_val)
 
         return llr
-

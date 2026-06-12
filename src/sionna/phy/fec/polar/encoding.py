@@ -106,7 +106,11 @@ class PolarEncoder(Block):
         self._check_input = True  # Check input for binary values during first call
 
         self._nb_stages = int(np.log2(self._n))
-        self._ind_gather = self._gen_indices(self._n)
+        self.register_buffer(
+            "_ind_gather",
+            self._gen_indices(self._n),
+            persistent=False,
+        )
 
     @property
     def k(self) -> int:
@@ -733,4 +737,3 @@ class Polar5GEncoder(PolarEncoder):
         c_reshaped = c_matched.reshape(output_shape)
 
         return c_reshaped
-

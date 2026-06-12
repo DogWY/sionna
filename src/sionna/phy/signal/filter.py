@@ -109,7 +109,7 @@ class Filter(Block):
         assert isinstance(normalize, bool), "normalize must be bool"
         self._normalize = normalize
 
-        self._coefficients: Optional[torch.Tensor] = None
+        self.register_buffer("_coefficients", None, persistent=False)
 
     @property
     def span_in_symbols(self) -> int:
@@ -174,15 +174,29 @@ class Filter(Block):
 
     @coefficients.setter
     def coefficients(self, v: Union[torch.Tensor, np.ndarray]) -> None:
+        is_parameter = False
+        requires_grad = False
         if not isinstance(v, torch.Tensor):
             v = torch.as_tensor(v, dtype=self.dtype, device=self.device)
         else:
+            is_parameter = isinstance(v, torch.nn.Parameter)
+            requires_grad = v.requires_grad
             # Preserve gradient if already a tensor with requires_grad
             # Only convert if dtype or device differs
             target_dtype = self.cdtype if v.is_complex() else self.dtype
             if v.dtype != target_dtype or str(v.device) != self.device:
                 v = v.to(dtype=target_dtype, device=self.device)
-        self._coefficients = v
+        self._parameters.pop("_coefficients", None)
+        self._buffers.pop("_coefficients", None)
+        if is_parameter:
+            if isinstance(v, torch.nn.Parameter):
+                self._coefficients = v
+            else:
+                self._coefficients = torch.nn.Parameter(
+                    v, requires_grad=requires_grad
+                )
+        else:
+            self.register_buffer("_coefficients", v, persistent=False)
 
     @property
     def sampling_times(self) -> np.ndarray:

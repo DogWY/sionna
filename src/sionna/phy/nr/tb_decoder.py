@@ -143,7 +143,11 @@ class TBDecoder(Block):
             self._cb_crc_decoder = None
 
         # Cache output_perm_inv on decoder's device to avoid .to() on every call
-        self._output_perm_inv = encoder.output_perm_inv.to(self.device)
+        self.register_buffer(
+            "_output_perm_inv",
+            encoder.output_perm_inv.to(self.device),
+            persistent=False,
+        )
 
     #########################################
     # Public methods and properties
@@ -241,4 +245,3 @@ class TBDecoder(Block):
         tb_crc_status = tb_crc_status.squeeze(-1).bool()
 
         return u_hat, tb_crc_status
-

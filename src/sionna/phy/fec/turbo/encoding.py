@@ -152,8 +152,10 @@ class TurboEncoder(Block):
         rsc = True
 
         self._coderate_conv = 1 / len(self.gen_poly)
-        self._punct_pattern = puncture_pattern(
-            rate, self._coderate_conv, device=self.device
+        self.register_buffer(
+            "_punct_pattern",
+            puncture_pattern(rate, self._coderate_conv, device=self.device),
+            persistent=False,
         )
 
         self._trellis = Trellis(self.gen_poly, rsc=rsc, device=self.device)
@@ -194,7 +196,10 @@ class TurboEncoder(Block):
 
         # Precompute puncture indices
         if self._punct_pattern is not None:
-            self.register_buffer("_punct_idx", torch.where(self._punct_pattern.flatten())[0])
+            self.register_buffer(
+                "_punct_idx",
+                torch.where(self._punct_pattern.flatten())[0],
+            )
         else:
             self.register_buffer("_punct_idx", None)
 
@@ -435,4 +440,3 @@ class TurboEncoder(Block):
         cw_reshaped = cw.reshape(output_shape)
         # Ensure contiguous output for torch.compile compatibility
         return cw_reshaped.contiguous()
-

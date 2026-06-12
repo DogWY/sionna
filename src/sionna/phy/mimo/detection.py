@@ -400,11 +400,21 @@ class MaximumLikelihoodDetector(Block):
 
         # Build lookup tables
         vecs, vecs_ind, c = self._build_vecs(num_streams)
-        self._vecs = torch.as_tensor(vecs, dtype=self.cdtype, device=self.device)
-        self._vecs_ind = torch.as_tensor(
-            vecs_ind, dtype=torch.int64, device=self.device
+        self.register_buffer(
+            "_vecs",
+            torch.as_tensor(vecs, dtype=self.cdtype, device=self.device),
+            persistent=False,
         )
-        self._c = torch.as_tensor(c, dtype=torch.int64, device=self.device)
+        self.register_buffer(
+            "_vecs_ind",
+            torch.as_tensor(vecs_ind, dtype=torch.int64, device=self.device),
+            persistent=False,
+        )
+        self.register_buffer(
+            "_c",
+            torch.as_tensor(c, dtype=torch.int64, device=self.device),
+            persistent=False,
+        )
 
         if output == "bit":
             num_bits = self._constellation.num_bits_per_symbol
@@ -727,7 +737,11 @@ class KBestDetector(Block):
                 device=device,
             )
             c._points = c._points / (torch.std(c._points).item() * np.sqrt(2))
-            self._constellation = c.points.real.to(self.dtype)
+            self.register_buffer(
+                "_constellation",
+                c.points.real.to(self.dtype),
+                persistent=False,
+            )
 
             self._pam2qam = PAM2QAM(
                 2 * self._num_bits_per_symbol, precision=precision, device=device
@@ -742,7 +756,7 @@ class KBestDetector(Block):
                 precision=precision,
                 device=device,
             )
-            self._constellation = c()
+            self.register_buffer("_constellation", c(), persistent=False)
             self._num_bits_per_symbol = c.num_bits_per_symbol
 
         self._num_symbols = self._constellation.shape[0]
@@ -766,15 +780,23 @@ class KBestDetector(Block):
             ind[:, : l + 1] = 1
             ind = np.stack(np.where(ind), -1)
             indices[l, : ind.shape[0], : ind.shape[1]] = ind
-        self._indices = torch.tensor(indices, dtype=torch.int64, device=self.device)
+        self.register_buffer(
+            "_indices",
+            torch.tensor(indices, dtype=torch.int64, device=self.device),
+            persistent=False,
+        )
 
         # Precompute symbol patterns for each layer to avoid recreating in loop
         # Symbol pattern: [k, num_symbols] -> tiled constellation
-        self._sym_pattern = (
-            self._constellation.reshape(1, -1).expand(self._k, -1).reshape(-1)
+        self.register_buffer(
+            "_sym_pattern",
+            self._constellation.reshape(1, -1).expand(self._k, -1).reshape(-1),
+            persistent=False,
         )
-        self._ind_pattern = torch.arange(self._num_symbols, device=self.device).repeat(
-            self._k
+        self.register_buffer(
+            "_ind_pattern",
+            torch.arange(self._num_symbols, device=self.device).repeat(self._k),
+            persistent=False,
         )
 
         if self._output == "bit":
@@ -1168,13 +1190,23 @@ class EPDetector(Block):
         points = Constellation(
             "pam", int(self._num_bits_per_symbol), precision=precision, device=device
         )()
-        self._points = (points / np.sqrt(2.0)).real.to(self.dtype)
-        self._es = torch.tensor(
-            self._points.var().item(), dtype=self.dtype, device=self.device
+        self.register_buffer(
+            "_points",
+            (points / np.sqrt(2.0)).real.to(self.dtype),
+            persistent=False,
+        )
+        self.register_buffer(
+            "_es",
+            torch.tensor(self._points.var().item(), dtype=self.dtype, device=self.device),
+            persistent=False,
         )
 
         # Pre-compute scalar for noise
-        self._no = torch.tensor(0.5, dtype=self.dtype, device=self.device)
+        self.register_buffer(
+            "_no",
+            torch.tensor(0.5, dtype=self.dtype, device=self.device),
+            persistent=False,
+        )
 
     def compute_sigma_mu(self, h_t_h, h_t_y, no, lam, gam):
         """Equations (28) and (29)."""

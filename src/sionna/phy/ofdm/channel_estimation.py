@@ -154,7 +154,11 @@ class BaseChannelEstimator(Block):
         # Use stable=True to ensure consistent ordering across CPU/GPU
         # (otherwise ties among pilot positions may be ordered differently)
         pilot_ind = torch.argsort(mask.float(), dim=-1, descending=True, stable=True)
-        self._pilot_ind = pilot_ind[..., :num_pilot_symbols].to(device=self.device)
+        self.register_buffer(
+            "_pilot_ind",
+            pilot_ind[..., :num_pilot_symbols].to(device=self.device),
+            persistent=False,
+        )
 
     @abstractmethod
     def estimate_at_pilot_locations(
@@ -434,12 +438,15 @@ class NearestNeighborInterpolator(BaseChannelInterpolator):
                     # Store it in the index tensor
                     gather_ind[a, i, j] = ind
 
-        # Reshape to the original shape of the mask
-        # Store on the configured device directly (no buffer needed)
-        from sionna.phy import config
-
-        self._gather_ind = torch.tensor(
-            np.reshape(gather_ind, mask_shape), dtype=torch.int64, device=config.device
+        # Reshape to the original shape of the mask.
+        self.register_buffer(
+            "_gather_ind",
+            torch.tensor(
+                np.reshape(gather_ind, mask_shape),
+                dtype=torch.int64,
+                device=self.device,
+            ),
+            persistent=False,
         )
 
     def _interpolate(self, inputs: torch.Tensor) -> torch.Tensor:

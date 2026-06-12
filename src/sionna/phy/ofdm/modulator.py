@@ -59,7 +59,7 @@ class OFDMModulator(Block):
         self._cp_length_scalar: Optional[int] = None  # Cached scalar for call()
         # Register tensors as buffers for CUDA graph compatibility
         self.register_buffer("_cyclic_prefix_length", None)
-        self.register_buffer("_ind", None)
+        self.register_buffer("_ind", None, persistent=False)
         self.cyclic_prefix_length = cyclic_prefix_length
 
     @property
@@ -134,7 +134,7 @@ class OFDMModulator(Block):
                 offset += cp_length_i + fft_size
 
             # Concatenate all indices
-            self.register_buffer("_ind", torch.cat(indices_list))
+            self.register_buffer("_ind", torch.cat(indices_list), persistent=False)
 
     def call(self, inputs: torch.Tensor) -> torch.Tensor:
         """Modulate OFDM resource grid to time-domain signal.

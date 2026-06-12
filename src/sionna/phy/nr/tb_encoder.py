@@ -151,7 +151,14 @@ class TBEncoder(Block):
 
         if not (0. < target_coderate <= 948 / 1024):
             raise ValueError("target_coderate must be in range (0, 0.925].")
-        self._target_coderate = target_coderate
+        if isinstance(target_coderate, torch.Tensor):
+            self.register_buffer(
+                "_target_coderate",
+                target_coderate.to(dtype=self.dtype, device=self.device),
+                persistent=False,
+            )
+        else:
+            self._target_coderate = target_coderate
 
         if num_bits_per_symbol % 1 != 0:
             raise ValueError("num_bits_per_symbol must be int.")
@@ -457,4 +464,3 @@ class TBEncoder(Block):
         c_tb = c_scr.reshape(output_shape)
 
         return c_tb
-

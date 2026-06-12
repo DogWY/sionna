@@ -42,8 +42,12 @@ class Object(torch.nn.Module):
         self._precision: Precision = (
             config.precision if precision is None else precision
         )
-        # Use _device_str to avoid conflict with nn.Module internals
-        self._device_str: str = config.device if device is None else device
+        resolved_device = config.device if device is None else device
+        self.register_buffer(
+            "_device_ref",
+            torch.empty(0, device=resolved_device),
+            persistent=False,
+        )
 
     @property
     def dtype(self) -> torch.dtype:
@@ -73,7 +77,7 @@ class Object(torch.nn.Module):
     @property
     def device(self) -> str:
         """Get the device for computation (e.g., 'cpu', 'cuda:0')."""
-        return self._device_str
+        return str(self._device_ref.device)
 
     @property
     def torch_rng(self) -> torch.Generator:
@@ -108,7 +112,7 @@ class Object(torch.nn.Module):
         # Convert floats and complex to tensors (data values)
         # Also convert numpy arrays and other array-like objects
         if not isinstance(v, torch.Tensor):
-            v = torch.as_tensor(v, device=self._device_str)
+            v = torch.as_tensor(v, device=self.device)
 
         # Determine target dtype
         if v.is_complex():

@@ -273,24 +273,24 @@ class CDL(ChannelModel):
         self._allocated_num_time_steps: int = 0
 
         # Velocity buffers
-        self.register_buffer("_velocity_r", None)
-        self.register_buffer("_velocity_phi", None)
-        self.register_buffer("_velocity_theta", None)
-        self.register_buffer("_velocity_buffer", None)
+        self.register_buffer("_velocity_r", None, persistent=False)
+        self.register_buffer("_velocity_phi", None, persistent=False)
+        self.register_buffer("_velocity_theta", None, persistent=False)
+        self.register_buffer("_velocity_buffer", None, persistent=False)
 
         # Topology buffers (for non-LoS case)
-        self.register_buffer("_los_aoa_zeros", None)
-        self.register_buffer("_los_aod_zeros", None)
-        self.register_buffer("_los_zoa_zeros", None)
-        self.register_buffer("_los_zod_zeros", None)
-        self.register_buffer("_los_indicator", None)
-        self.register_buffer("_distance_3d_zeros", None)
+        self.register_buffer("_los_aoa_zeros", None, persistent=False)
+        self.register_buffer("_los_aod_zeros", None, persistent=False)
+        self.register_buffer("_los_zoa_zeros", None, persistent=False)
+        self.register_buffer("_los_zod_zeros", None, persistent=False)
+        self.register_buffer("_los_indicator", None, persistent=False)
+        self.register_buffer("_distance_3d_zeros", None, persistent=False)
 
         # Shuffle buffers
-        self.register_buffer("_shuffle_random_aoa", None)
-        self.register_buffer("_shuffle_random_aod", None)
-        self.register_buffer("_shuffle_random_zoa", None)
-        self.register_buffer("_shuffle_random_zod", None)
+        self.register_buffer("_shuffle_random_aoa", None, persistent=False)
+        self.register_buffer("_shuffle_random_aod", None, persistent=False)
+        self.register_buffer("_shuffle_random_zoa", None, persistent=False)
+        self.register_buffer("_shuffle_random_zod", None, persistent=False)
 
     def allocate_for_batch_size(
         self, batch_size: int, num_time_steps: int = 100
@@ -312,43 +312,90 @@ class CDL(ChannelModel):
 
         # Velocity buffers (only needed if ut_velocity is None)
         if self._ut_velocity is None:
-            self.register_buffer("_velocity_r",
-                torch.zeros(batch_size, 1, dtype=self.dtype, device=self.device))
-            self.register_buffer("_velocity_phi",
-                torch.zeros(batch_size, 1, dtype=self.dtype, device=self.device))
-            self.register_buffer("_velocity_theta",
-                torch.zeros(batch_size, 1, dtype=self.dtype, device=self.device))
-            self.register_buffer("_velocity_buffer",
-                torch.zeros(batch_size, 3, dtype=self.dtype, device=self.device))
+            self.register_buffer(
+                "_velocity_r",
+                torch.zeros(batch_size, 1, dtype=self.dtype, device=self.device),
+                persistent=False,
+            )
+            self.register_buffer(
+                "_velocity_phi",
+                torch.zeros(batch_size, 1, dtype=self.dtype, device=self.device),
+                persistent=False,
+            )
+            self.register_buffer(
+                "_velocity_theta",
+                torch.zeros(batch_size, 1, dtype=self.dtype, device=self.device),
+                persistent=False,
+            )
+            self.register_buffer(
+                "_velocity_buffer",
+                torch.zeros(batch_size, 3, dtype=self.dtype, device=self.device),
+                persistent=False,
+            )
 
         # Topology buffers (always needed for non-LoS case)
         if not self._has_los:
-            self.register_buffer("_los_aoa_zeros",
-                torch.zeros(1, 1, 1, dtype=self.dtype, device=self.device))
-            self.register_buffer("_los_aod_zeros",
-                torch.zeros(1, 1, 1, dtype=self.dtype, device=self.device))
-            self.register_buffer("_los_zoa_zeros",
-                torch.zeros(1, 1, 1, dtype=self.dtype, device=self.device))
-            self.register_buffer("_los_zod_zeros",
-                torch.zeros(1, 1, 1, dtype=self.dtype, device=self.device))
+            self.register_buffer(
+                "_los_aoa_zeros",
+                torch.zeros(1, 1, 1, dtype=self.dtype, device=self.device),
+                persistent=False,
+            )
+            self.register_buffer(
+                "_los_aod_zeros",
+                torch.zeros(1, 1, 1, dtype=self.dtype, device=self.device),
+                persistent=False,
+            )
+            self.register_buffer(
+                "_los_zoa_zeros",
+                torch.zeros(1, 1, 1, dtype=self.dtype, device=self.device),
+                persistent=False,
+            )
+            self.register_buffer(
+                "_los_zod_zeros",
+                torch.zeros(1, 1, 1, dtype=self.dtype, device=self.device),
+                persistent=False,
+            )
 
-        self.register_buffer("_los_indicator",
-            torch.full((batch_size, 1, 1), self._has_los, dtype=torch.bool, device=self.device))
-        self.register_buffer("_distance_3d_zeros",
-            torch.zeros((batch_size, 1, 1), dtype=self.dtype, device=self.device))
+        self.register_buffer(
+            "_los_indicator",
+            torch.full(
+                (batch_size, 1, 1),
+                self._has_los,
+                dtype=torch.bool,
+                device=self.device,
+            ),
+            persistent=False,
+        )
+        self.register_buffer(
+            "_distance_3d_zeros",
+            torch.zeros((batch_size, 1, 1), dtype=self.dtype, device=self.device),
+            persistent=False,
+        )
 
         # Shuffle buffers for random coupling
         num_clusters = self._num_clusters
         rays_per_cluster = self._rays_per_cluster
         shuffle_shape = (batch_size, 1, 1, num_clusters, rays_per_cluster)
-        self.register_buffer("_shuffle_random_aoa",
-            torch.zeros(shuffle_shape, dtype=self.dtype, device=self.device))
-        self.register_buffer("_shuffle_random_aod",
-            torch.zeros(shuffle_shape, dtype=self.dtype, device=self.device))
-        self.register_buffer("_shuffle_random_zoa",
-            torch.zeros(shuffle_shape, dtype=self.dtype, device=self.device))
-        self.register_buffer("_shuffle_random_zod",
-            torch.zeros(shuffle_shape, dtype=self.dtype, device=self.device))
+        self.register_buffer(
+            "_shuffle_random_aoa",
+            torch.zeros(shuffle_shape, dtype=self.dtype, device=self.device),
+            persistent=False,
+        )
+        self.register_buffer(
+            "_shuffle_random_aod",
+            torch.zeros(shuffle_shape, dtype=self.dtype, device=self.device),
+            persistent=False,
+        )
+        self.register_buffer(
+            "_shuffle_random_zoa",
+            torch.zeros(shuffle_shape, dtype=self.dtype, device=self.device),
+            persistent=False,
+        )
+        self.register_buffer(
+            "_shuffle_random_zod",
+            torch.zeros(shuffle_shape, dtype=self.dtype, device=self.device),
+            persistent=False,
+        )
 
         # Allocate in the channel coefficients generator
         self._cir_gen.allocate_for_batch_size(
@@ -855,5 +902,3 @@ class CDL(ChannelModel):
             shuffled_zod = self._shuffle_angles(zod)
 
         return shuffled_aoa, shuffled_aod, shuffled_zoa, shuffled_zod
-
-

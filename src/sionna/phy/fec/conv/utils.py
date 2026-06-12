@@ -119,7 +119,7 @@ def resolve_gen_poly(
     return polynomial_selector(rate, constraint_length)
 
 
-class Trellis:
+class Trellis(torch.nn.Module):
     r"""Trellis structure for a given generator polynomial.
 
     Defines state transitions and output symbols (and bits) for each current
@@ -158,6 +158,7 @@ class Trellis:
         rsc: bool = False,
         device: str = None,
     ):
+        super().__init__()
         self.rsc = rsc
         self.gen_poly = gen_poly
         self.constraint_length = len(self.gen_poly[0])
@@ -177,32 +178,37 @@ class Trellis:
             if self.conv_k != 1:
                 raise ValueError("RSC only supports conv_k=1.")
 
-        self._device = device if device is not None else "cpu"
+        resolved_device = device if device is not None else "cpu"
+        self.register_buffer(
+            "_device_ref",
+            torch.empty(0, device=resolved_device),
+            persistent=False,
+        )
 
         # For current state i and input j, state transitions i->to_nodes[i][j]
-        self.to_nodes = None
+        self.register_buffer("to_nodes", None, persistent=False)
 
         # For current state i, valid state transitions are from_nodes[i][:]-> i
-        self.from_nodes = None
+        self.register_buffer("from_nodes", None, persistent=False)
 
         # Given states i and j, Trellis emits op_mat[i][j] symbol if neq -1
-        self.op_mat = None
+        self.register_buffer("op_mat", None, persistent=False)
 
         # Given next state as i, trellis emits op_by_tonode[i][:] symbols
-        self.op_by_tonode = None
+        self.register_buffer("op_by_tonode", None, persistent=False)
 
         # Given ip_by_tonode[i][:] bits as input, trellis transitions to State i
-        self.ip_by_tonode = None
+        self.register_buffer("ip_by_tonode", None, persistent=False)
 
         # Given from state i and input j, trellis emits op_by_fromnode[i][j]
-        self.op_by_fromnode = None
+        self.register_buffer("op_by_fromnode", None, persistent=False)
 
         self._generate_transitions()
 
     @property
     def device(self) -> str:
         """Device on which trellis tensors reside."""
-        return self._device
+        return str(self._device_ref.device)
 
     @property
     def mu(self) -> int:
@@ -276,18 +282,36 @@ class Trellis:
                 op_by_fromnode[j][i] = op_sym
                 from_nodes_ctr[j_to] += 1
 
-        self.to_nodes = torch.tensor(to_nodes, dtype=torch.int32,
-                                     device=self._device)
-        self.from_nodes = torch.tensor(from_nodes, dtype=torch.int32,
-                                       device=self._device)
-        self.op_mat = torch.tensor(op_mat, dtype=torch.int32,
-                                   device=self._device)
-        self.ip_by_tonode = torch.tensor(ip_by_tonode, dtype=torch.int32,
-                                         device=self._device)
-        self.op_by_tonode = torch.tensor(op_by_tonode, dtype=torch.int32,
-                                         device=self._device)
-        self.op_by_fromnode = torch.tensor(op_by_fromnode, dtype=torch.int32,
-                                           device=self._device)
+        self.register_buffer(
+            "to_nodes",
+            torch.tensor(to_nodes, dtype=torch.int32, device=self.device),
+            persistent=False,
+        )
+        self.register_buffer(
+            "from_nodes",
+            torch.tensor(from_nodes, dtype=torch.int32, device=self.device),
+            persistent=False,
+        )
+        self.register_buffer(
+            "op_mat",
+            torch.tensor(op_mat, dtype=torch.int32, device=self.device),
+            persistent=False,
+        )
+        self.register_buffer(
+            "ip_by_tonode",
+            torch.tensor(ip_by_tonode, dtype=torch.int32, device=self.device),
+            persistent=False,
+        )
+        self.register_buffer(
+            "op_by_tonode",
+            torch.tensor(op_by_tonode, dtype=torch.int32, device=self.device),
+            persistent=False,
+        )
+        self.register_buffer(
+            "op_by_fromnode",
+            torch.tensor(op_by_fromnode, dtype=torch.int32, device=self.device),
+            persistent=False,
+        )
 
     def to(self, device: str) -> "Trellis":
         """Moves all tensors to the specified device.
@@ -296,14 +320,6 @@ class Trellis:
 
         :output trellis: Self reference for chaining.
         """
-        self._device = device
-        self.to_nodes = self.to_nodes.to(device)
-        self.from_nodes = self.from_nodes.to(device)
-        self.op_mat = self.op_mat.to(device)
-        self.ip_by_tonode = self.ip_by_tonode.to(device)
-        self.op_by_tonode = self.op_by_tonode.to(device)
-        self.op_by_fromnode = self.op_by_fromnode.to(device)
-        return self
-
+        return super().to(device)
 
 

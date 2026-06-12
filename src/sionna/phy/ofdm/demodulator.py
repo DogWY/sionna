@@ -109,7 +109,7 @@ class OFDMDemodulator(Block):
         self.register_buffer("_phase_compensation", None)
         # Store symbol_length as buffer for torch.compile compatibility
         self.register_buffer("_symbol_length", None)
-        self.register_buffer("_ind", None)
+        self.register_buffer("_ind", None, persistent=False)
 
         self.fft_size = fft_size
         self.l_min = l_min
@@ -224,7 +224,11 @@ class OFDMDemodulator(Block):
                 indices_list.append(indices)
 
             # [num_ofdm_symbols, fft_size]
-            self.register_buffer("_ind", torch.stack(indices_list, dim=0))
+            self.register_buffer(
+                "_ind",
+                torch.stack(indices_list, dim=0),
+                persistent=False,
+            )
 
     def call(self, inputs: torch.Tensor) -> torch.Tensor:
         """Demodulate OFDM waveform onto a resource grid."""

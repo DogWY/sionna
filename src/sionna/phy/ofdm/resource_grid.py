@@ -462,9 +462,19 @@ class ResourceGridMapper(Block):
         # [num_tx, num_streams_per_tx, num_ofdm_symbols, fft_size]
         # which is prefilled with pilots and stores indices
         # to scatter data symbols.
-        self._rg_type = self._resource_grid.build_type_grid()
-        self.register_buffer("_pilot_ind", torch.nonzero(self._rg_type == 1, as_tuple=False))
-        self.register_buffer("_data_ind", torch.nonzero(self._rg_type == 0, as_tuple=False))
+        self.register_buffer(
+            "_rg_type",
+            self._resource_grid.build_type_grid(),
+            persistent=False,
+        )
+        self.register_buffer(
+            "_pilot_ind",
+            torch.nonzero(self._rg_type == 1, as_tuple=False),
+        )
+        self.register_buffer(
+            "_data_ind",
+            torch.nonzero(self._rg_type == 0, as_tuple=False),
+        )
 
     def call(self, inputs: torch.Tensor) -> torch.Tensor:
         """Map data symbols to resource grid.
@@ -713,4 +723,3 @@ class RemoveNulledSubcarriers(Block):
         """
         # Use index_select for torch.compile compatibility
         return torch.index_select(inputs, -1, self._sc_ind)
-

@@ -339,7 +339,7 @@ class Constellation(Block):
             raise ValueError("You must provide a value for `points`")
 
         # Initialize _points placeholder (will be set by property setter)
-        self._points = None
+        self.register_buffer("_points", None, persistent=False)
         if self.constellation_type == "qam":
             points = qam(self.num_bits_per_symbol, normalize=True, precision=precision)
         elif self.constellation_type == "pam":
@@ -396,16 +396,32 @@ class Constellation(Block):
             if v.shape != torch.Size([2**self.num_bits_per_symbol]):
                 err_msg = "`points` must have shape [2**num_bits_per_symbol]"
                 raise ValueError(err_msg)
+            is_parameter = isinstance(v, torch.nn.Parameter)
+            requires_grad = v.requires_grad
             # Use .to() to preserve gradient flow for trainable constellations
             if v.dtype != self.cdtype or v.device != torch.device(self.device):
                 v = v.to(dtype=self.cdtype, device=self.device)
-            self._points = v
+            self._parameters.pop("_points", None)
+            self._buffers.pop("_points", None)
+            if is_parameter:
+                if isinstance(v, torch.nn.Parameter):
+                    self._points = v
+                else:
+                    self._points = torch.nn.Parameter(v, requires_grad=requires_grad)
+            else:
+                self.register_buffer("_points", v, persistent=False)
         else:
             # Convert numpy array to tensor
             if np.shape(v) != (2**self.num_bits_per_symbol,):
                 err_msg = "`points` must have shape [2**num_bits_per_symbol]"
                 raise ValueError(err_msg)
-            self._points = torch.tensor(v, dtype=self.cdtype, device=self.device)
+            self._parameters.pop("_points", None)
+            self._buffers.pop("_points", None)
+            self.register_buffer(
+                "_points",
+                torch.tensor(v, dtype=self.cdtype, device=self.device),
+                persistent=False,
+            )
 
     def call(self) -> torch.Tensor:
         x = self.points
@@ -541,8 +557,10 @@ class Mapper(Block):
         )
         self._return_indices = return_indices
         n = self.constellation.num_bits_per_symbol
-        self._bit_positions = torch.arange(
-            n - 1, -1, -1, dtype=torch.int32, device=self.device
+        self.register_buffer(
+            "_bit_positions",
+            torch.arange(n - 1, -1, -1, dtype=torch.int32, device=self.device),
+            persistent=False,
         )
 
     @property
@@ -720,7 +738,11 @@ class Demapper(Block):
         )
 
         tiny = np.finfo(dtypes[self.precision]["np"]["dtype"]).tiny
-        self._no_threshold = torch.tensor(tiny, dtype=self.dtype, device=self.device)
+        self.register_buffer(
+            "_no_threshold",
+            torch.tensor(tiny, dtype=self.dtype, device=self.device),
+            persistent=False,
+        )
 
     @property
     def constellation(self) -> Constellation:
@@ -992,13 +1014,25 @@ class SymbolLogits2LLRs(Block):
         # [num_points/2, num_bits_per_symbol]
         c0 = np.array([np.where(a[:, i] == 0)[0] for i in range(num_bits_per_symbol)]).T
         c1 = np.array([np.where(a[:, i] == 1)[0] for i in range(num_bits_per_symbol)]).T
-        self._c0 = torch.tensor(c0, dtype=torch.int64, device=self.device)
-        self._c1 = torch.tensor(c1, dtype=torch.int64, device=self.device)
+        self.register_buffer(
+            "_c0",
+            torch.tensor(c0, dtype=torch.int64, device=self.device),
+            persistent=False,
+        )
+        self.register_buffer(
+            "_c1",
+            torch.tensor(c1, dtype=torch.int64, device=self.device),
+            persistent=False,
+        )
 
         # Array of labels from {-1, 1} of all symbols
         # [num_points, num_bits_per_symbol]
         a = 2 * a - 1
-        self._a = torch.tensor(a, dtype=self.dtype, device=self.device)
+        self.register_buffer(
+            "_a",
+            torch.tensor(a, dtype=self.dtype, device=self.device),
+            persistent=False,
+        )
 
     @property
     def num_bits_per_symbol(self) -> int:
@@ -1130,7 +1164,11 @@ class LLRs2SymbolLogits(Block):
 
         # Binary labels from {-1, 1} of all symbols [num_points, num_bits_per_symbol]
         a = 2 * _compute_binary_labels(num_bits_per_symbol) - 1
-        self._a = torch.tensor(a, dtype=self.dtype, device=self.device)
+        self.register_buffer(
+            "_a",
+            torch.tensor(a, dtype=self.dtype, device=self.device),
+            persistent=False,
+        )
 
     @property
     def num_bits_per_symbol(self) -> int:
@@ -1279,7 +1317,11 @@ class SymbolInds2Bits(Block):
         super().__init__(precision=precision, device=device, **kwargs)
         # Binary representation of all symbol indices [num_symbols, num_bits_per_symbol]
         b = _compute_binary_labels(num_bits_per_symbol)
-        self._bit_labels = torch.tensor(b, dtype=self.dtype, device=self.device)
+        self.register_buffer(
+            "_bit_labels",
+            torch.tensor(b, dtype=self.dtype, device=self.device),
+            persistent=False,
+        )
 
     def call(self, symbol_ind: torch.Tensor) -> torch.Tensor:
         return self._bit_labels[symbol_ind]
@@ -1338,8 +1380,16 @@ class QAM2PAM(Object):
         pam1_ind = (bits[:, 0::2] * base).sum(axis=1)
         pam2_ind = (bits[:, 1::2] * base).sum(axis=1)
 
-        self._pam1_ind = torch.tensor(pam1_ind, dtype=torch.int64, device=self.device)
-        self._pam2_ind = torch.tensor(pam2_ind, dtype=torch.int64, device=self.device)
+        self.register_buffer(
+            "_pam1_ind",
+            torch.tensor(pam1_ind, dtype=torch.int64, device=self.device),
+            persistent=False,
+        )
+        self.register_buffer(
+            "_pam2_ind",
+            torch.tensor(pam2_ind, dtype=torch.int64, device=self.device),
+            persistent=False,
+        )
 
     def __call__(self, ind_qam: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         ind_pam1 = self._pam1_ind[ind_qam]
@@ -1416,7 +1466,11 @@ class PAM2QAM(Object):
         qam_base = np.array([2**k for k in range(num_bits_per_symbol - 1, -1, -1)])
         ind = (interleaved * qam_base).sum(axis=-1)
 
-        self._qam_ind = torch.tensor(ind, dtype=torch.int64, device=self.device)
+        self.register_buffer(
+            "_qam_ind",
+            torch.tensor(ind, dtype=torch.int64, device=self.device),
+            persistent=False,
+        )
         self._hard_in_out = hard_in_out
 
     def __call__(self, pam1: torch.Tensor, pam2: torch.Tensor) -> torch.Tensor:

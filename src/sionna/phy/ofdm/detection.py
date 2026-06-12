@@ -163,21 +163,37 @@ class OFDMDetector(Block):
             flatten_last_dims(mask.to(torch.float32)), dim=-1, descending=False,
             stable=True
         )
-        self._data_ind = data_ind[..., :num_data_symbols].to(device=self.device)
+        self.register_buffer(
+            "_data_ind",
+            data_ind[..., :num_data_symbols].to(device=self.device),
+            persistent=False,
+        )
 
         # Precompute stream management indices as tensors for CUDA Graph compatibility
-        self._detection_desired_ind = torch.tensor(
-            stream_management.detection_desired_ind,
-            dtype=torch.long,
-            device=self.device,
+        self.register_buffer(
+            "_detection_desired_ind",
+            torch.tensor(
+                stream_management.detection_desired_ind,
+                dtype=torch.long,
+                device=self.device,
+            ),
+            persistent=False,
         )
-        self._detection_undesired_ind = torch.tensor(
-            stream_management.detection_undesired_ind,
-            dtype=torch.long,
-            device=self.device,
+        self.register_buffer(
+            "_detection_undesired_ind",
+            torch.tensor(
+                stream_management.detection_undesired_ind,
+                dtype=torch.long,
+                device=self.device,
+            ),
+            persistent=False,
         )
-        self._stream_ind = torch.tensor(
-            stream_management.stream_ind, dtype=torch.long, device=self.device
+        self.register_buffer(
+            "_stream_ind",
+            torch.tensor(
+                stream_management.stream_ind, dtype=torch.long, device=self.device
+            ),
+            persistent=False,
         )
 
     def _preprocess_inputs(
@@ -510,7 +526,7 @@ class OFDMDetectorWithPrior(OFDMDetector):
 
         # Track allocated batch size for CUDAGraph compatibility
         self._allocated_batch_size = None
-        self.register_buffer("_template", None)
+        self.register_buffer("_template", None, persistent=False)
 
     def build(self, y_shape, h_hat_shape, prior_shape, err_var_shape, no_shape):
         """Pre-allocate buffers based on input shapes.
@@ -548,6 +564,7 @@ class OFDMDetectorWithPrior(OFDMDetector):
                 dtype=self.dtype,
                 device=self.device,
             ),
+            persistent=False,
         )
 
     def call(
